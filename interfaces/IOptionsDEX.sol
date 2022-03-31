@@ -3,7 +3,7 @@ pragma solidity 0.8.0;
 /*
 Interface for OptionsDex
 */
-interface IOptionsDex {
+interface IOptionsDEX {
 
     function createOption(address _asset, uint96 _premium, uint96 _strikePrice, uint96 _blockExpiration) external;
 
@@ -22,5 +22,11 @@ interface IOptionsDex {
     function refund(bytes32 _optionHash) external;
 
     function getOptionDetails(bytes32) external view returns (address, uint96, address, uint96, address, uint96, uint128, uint128);
+
+    function viewHolderApproval(bytes32 _optionHash) external view returns (address);
+
+    function viewWriterApproval(bytes32 _optionHash) external view returns (address);
+
+    receive() external payable;
 
 }

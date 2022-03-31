@@ -1,1 +1,5 @@
 dotenv: .env
+networks:
+  development:
+    cmd_settings:
+      default_balance: "1000000 ether"

@@ -8,7 +8,7 @@ import "../interfaces/IOptionsDEX.sol";
 /*
 Options DEX smart contract
 */
-contract OptionsDEX is IOptionsDex {
+contract OptionsDEX is IOptionsDEX {
 
     struct Option {
         // Address of ERC20 asset
@@ -206,4 +206,14 @@ contract OptionsDEX is IOptionsDex {
         // Return option as tuple
         return (_option.asset, _option.strikePrice, _option.writer, _option.premium, _option.holder, _option.blockExpiration, _option.holderSellPrice, _option.writerSellPrice);
     }
+
+    function viewHolderApproval(bytes32 _optionHash) external view override returns (address) {
+        return approvedHolderAddress[_optionHash];
+    }
+
+    function viewWriterApproval(bytes32 _optionHash) external view override returns (address) {
+        return approvedWriterAddress[_optionHash];
+    }
+
+    receive() external payable override {}
 }
