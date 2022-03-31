@@ -11,24 +11,22 @@ Options DEX smart contract
 contract OptionsDEX is IOptionsDex {
 
     struct Option {
-        // Address of ERC-20 asset
+        // Address of ERC20 asset
         address asset;
-        // Address of writer
+        // Right to buy token at strikePrice (in Wei)
+        uint96 strikePrice;
+        // Address of option writer
         address writer;
-        // Address of holder
+        // Premium per token (in Wei)
+        uint96 premium;
+        // Address of option holder
         address holder;
         // Expiration block #
-        uint64 blockexpiration;
-        // Nonce to prevent identical transactions
-        uint32 sellerNonce;
-        // Premium per token (in Wei)
-        uint256 premium;
-        // Right to buy token at strikePrice (in Wei)
-        uint256 strikePrice;
-        // Holder's sell price (if existent)
-        uint256 holderSellPrice;
-        // Writer's sell price (if existent)
-        uint256 writerSellPrice;
+        uint96 blockExpiration;
+        // Holder's sell price (if existent) (in Wei)
+        uint128 holderSellPrice;
+        // Writer's sell price (if existent) (in Wei)
+        uint128 writerSellPrice;
     }
 
     // Hash of option to option
@@ -42,10 +40,11 @@ contract OptionsDEX is IOptionsDex {
 
     // Event detailing creation of new option
     event OptionCreated(address indexed seller, bytes32 indexed optionHash);
+
     // Event detailing purchase of an option either by a holder or writer
     event OptionExchanged(bytes32 indexed optionHash);
 
-    function createOption(address _asset, uint256 _premium, uint256 _strikePrice, uint64 _blockExpiration) public override {
+    function createOption(address _asset, uint96 _premium, uint96 _strikePrice, uint96 _blockExpiration) public override {
         // Enforce preconditions
         // Check that _blockExpiration is for future block
         require(_blockExpiration > block.number, "Invalid block expiration!");
@@ -55,9 +54,9 @@ contract OptionsDEX is IOptionsDex {
         require(_strikePrice > 0, "Invalid strike price!");
 
         // Create option
-        Option memory _option = Option(_asset, msg.sender, address(0), _blockExpiration, addressNonce[msg.sender], _premium, _strikePrice, 0, 0);
+        Option memory _option = Option(_asset, _strikePrice, msg.sender, _premium, address(0), _blockExpiration, 0, 0);
         // Create hash for option
-        bytes32 _optionHash = keccak256(abi.encode(_option));
+        bytes32 _optionHash = keccak256(abi.encode(_option, addressNonce[msg.sender]));
         // Add option to mapping
         openOptions[_optionHash] = _option;
         // Increment account nonce
@@ -78,7 +77,7 @@ contract OptionsDEX is IOptionsDex {
         // Fetch option from storage
         Option memory _option = openOptions[_optionHash];
         // Check that option exists
-        require(_option.blockexpiration != 0, "This option does not exist!");
+        require(_option.blockExpiration != 0, "This option does not exist!");
         // Check premium * 100 is equal to eth sent
         require(msg.value == _option.premium * 100, "Incorrect amount sent!");
         // Check option does not already have holder
@@ -92,11 +91,11 @@ contract OptionsDEX is IOptionsDex {
         emit OptionExchanged(_optionHash);
     }
 
-    function approveOptionTransferHolder(bytes32 _optionHash, address _newBuyer, uint256 _price) public override {
+    function approveOptionTransferHolder(bytes32 _optionHash, address _newBuyer, uint128 _price) public override {
         // Fetch option from storage
         Option memory _option = openOptions[_optionHash];
         // Check that option exists
-        require(_option.blockexpiration != 0, "This option does not exist!");
+        require(_option.blockExpiration != 0, "This option does not exist!");
         // Check that current holder is calling this option
         require(msg.sender == _option.holder, "You are not the current holder!");
 
@@ -112,7 +111,7 @@ contract OptionsDEX is IOptionsDex {
         // Fetch option from storage
         Option memory _option = openOptions[_optionHash];
         // Check that option exists
-        require(_option.blockexpiration != 0, "This option does not exist!");
+        require(_option.blockExpiration != 0, "This option does not exist!");
         // Check that msg.value is equal to holder's sell price
         require(_option.holderSellPrice == msg.value, "Incorrect amount sent!");
 
@@ -126,11 +125,11 @@ contract OptionsDEX is IOptionsDex {
 
     }
 
-    function approveOptionTransferWriter(bytes32 _optionHash, uint256 _price, address _newWriter) public override {
+    function approveOptionTransferWriter(bytes32 _optionHash, address _newWriter, uint128 _price) public override {
          // Fetch option from storage
         Option memory _option = openOptions[_optionHash];
         // Check that option exists
-        require(_option.blockexpiration != 0, "This option does not exist!");
+        require(_option.blockExpiration != 0, "This option does not exist!");
         // Check that current holder is calling this option
         require(msg.sender == _option.holder, "You are not the current holder!");
 
@@ -146,7 +145,7 @@ contract OptionsDEX is IOptionsDex {
         // Fetch option from storage
         Option memory _option = openOptions[_optionHash];
         // Check that option exists
-        require(_option.blockexpiration != 0, "This option does not exist!");
+        require(_option.blockExpiration != 0, "This option does not exist!");
         // Check that msg.value is equal to holder's sell price
         require(_option.holderSellPrice == msg.value, "Incorrect amount sent!");
         // Check that msg.sender has enough assets to cover option
@@ -167,7 +166,7 @@ contract OptionsDEX is IOptionsDex {
         // Fetch option from storage
         Option memory _option = openOptions[_optionHash];
         // Check that option exists
-        require(_option.blockexpiration != 0, "This option does not exist!");
+        require(_option.blockExpiration != 0, "This option does not exist!");
         // Check that msg.sender is current holder
         require(_option.holder == msg.sender, "You are not the holder!");
         // Check that eth sent = strikePrice * 100
@@ -187,7 +186,7 @@ contract OptionsDEX is IOptionsDex {
         // Fetch option from storage and check if it is valid
         Option memory _option = openOptions[_optionHash]; 
         // Check that option is past block expiration or that no buyer has been assigned
-        require(block.number > _option.blockexpiration || _option.holder == address(0), "You are not able to be refunded!");
+        require(block.number > _option.blockExpiration || _option.holder == address(0), "You are not able to be refunded!");
         // Check that msg.sender is the option writer
         require(msg.sender == _option.writer, "You are not the option writer!");
 
@@ -201,10 +200,10 @@ contract OptionsDEX is IOptionsDex {
         delete approvedHolderAddress[_optionHash];
     }
 
-    function getOptionDetails(bytes32 _optionHash) public view override returns(address, address, address, uint64, uint32, uint256, uint256, uint256, uint256) {
+    function getOptionDetails(bytes32 _optionHash) public view override returns(address, uint96, address, uint96, address, uint96, uint128, uint128) {
         // Fetch option from storage
         Option memory _option = openOptions[_optionHash];
         // Return option as tuple
-        return (_option.asset, _option.writer, _option.holder, _option.blockexpiration, _option.sellerNonce, _option.premium, _option.strikePrice, _option.holderSellPrice, _option.writerSellPrice);
+        return (_option.asset, _option.strikePrice, _option.writer, _option.premium, _option.holder, _option.blockExpiration, _option.holderSellPrice, _option.writerSellPrice);
     }
 }

@@ -5,15 +5,15 @@ Interface for OptionsDex
 */
 interface IOptionsDex {
 
-    function createOption(address _asset, uint256 _premium, uint256 _strikePrice, uint64 _blockExpiration) external;
+    function createOption(address _asset, uint96 _premium, uint96 _strikePrice, uint96 _blockExpiration) external;
 
     function buyOption(bytes32 _optionHash) payable external;
 
-    function approveOptionTransferHolder(bytes32 _optionHash, address _newBuyer, uint256 _price) external;
+    function approveOptionTransferHolder(bytes32 _optionHash, address _newBuyer, uint128 _price) external;
 
     function transferOptionHolder(bytes32 _optionHash) payable external;
 
-    function approveOptionTransferWriter(bytes32 _optionHash, uint256 _price, address _newWriter) external;
+    function approveOptionTransferWriter(bytes32 _optionHash, address _newWriter, uint128 _price) external;
 
     function transferOptionWriter(bytes32 _optionHash) payable external;
 
@@ -21,6 +21,6 @@ interface IOptionsDex {
 
     function refund(bytes32 _optionHash) external;
 
-    function getOptionDetails(bytes32) external view returns (address, address, address, uint64, uint32, uint256, uint256, uint256, uint256);
+    function getOptionDetails(bytes32) external view returns (address, uint96, address, uint96, address, uint96, uint128, uint128);
 
 }

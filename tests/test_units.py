@@ -5,16 +5,17 @@ File to test functionality and security of OptionDEX.sol
 import pytest
 from brownie import accounts, CayugaCoin, OptionsDEX, convert
 
+# Fixtures
+@pytest.fixture
+def _CayugaCoin():
+    return accounts[0].deploy(CayugaCoin, "CayugaCoin", "CC")
+
+@pytest.fixture
+def _OptionsDEX():
+    return accounts[0].deploy(OptionsDEX)
+
 # Test createOption
 class Test_createOption:
-
-    @pytest.fixture
-    def _CayugaCoin(self):
-        return accounts[0].deploy(CayugaCoin, "CayugaCoin", "CC")
-
-    @pytest.fixture
-    def _OptionsDEX(self):
-        return accounts[0].deploy(OptionsDEX)
 
     def test_one(self, _CayugaCoin, _OptionsDEX):
         """
@@ -98,7 +99,7 @@ class Test_getOptionDetails:
 
         hash = tx.events['OptionCreated']['optionHash']
         option = _OptionsDEX.getOptionDetails(hash)
-        assert int(option[3]) != 0
+        assert int(option[5]) != 0
 
     def test_two(self, _CayugaCoin, _OptionsDEX):
         """
@@ -132,4 +133,4 @@ class Test_getOptionDetails:
 
         hash = tx.events['OptionCreated']['optionHash']
         option = _OptionsDEX.getOptionDetails(hash)
-        assert str(option[1]) == accounts[0].address
+        assert str(option[2]) == accounts[0].address
