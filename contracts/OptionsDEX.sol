@@ -1,52 +1,9 @@
+// SPDX-License-Identifier: MIT
+
 pragma solidity 0.8.0;
 
-/*
-Interface for ERC20 token
-*/
-interface IERC20 {
-
-    function totalSupply() external view returns (uint);
-
-    function balanceOf(address account) external view returns (uint);
-
-    function transfer(address recipient, uint amount) external returns (bool);
-
-    function allowance(address owner, address spender) external view returns (uint);
-
-    function approve(address spender, uint amount) external returns (bool);
-
-    function transferFrom(
-        address sender,
-        address recipient,
-        uint amount
-    ) external returns (bool);
-
-    event Transfer(address indexed from, address indexed to, uint value);
-    event Approval(address indexed owner, address indexed spender, uint value);
-
-}
-
-
-/*
-Interface for OptionsDex
-*/
-interface IOptionsDex {
-
-    function createOption(address _asset, uint256 _premium, uint256 _strikePrice, uint64 _blockExpiration) external;
-
-    function buyOption(bytes32 _optionHash) payable external;
-
-    function approveOptionTransfer(bytes32 _optionHash, address _newBuyer, uint256 _price) external;
-
-    function transferOption(bytes32 _optionHash) payable external;
-
-    function exerciseOption(bytes32 _optionHash) payable external;
-
-    function refund(bytes32 _optionHash) external;
-
-    function getOptionDetails(bytes32) external view returns (address, address, address, uint64, uint32, uint256, uint256, uint256);
-
-}
+import "../interfaces/IERC20.sol";
+import "../interfaces/IOptionsDEX.sol";
 
 /*
 Options DEX smart contract
@@ -70,19 +27,23 @@ contract OptionsDEX is IOptionsDex {
         uint256 strikePrice;
         // Holder's sell price (if existent)
         uint256 holderSellPrice;
+        // Writer's sell price (if existent)
+        uint256 writerSellPrice;
     }
 
     // Hash of option to option
     mapping(bytes32 => Option) private openOptions;
     // Address to nonce
     mapping(address => uint32) private addressNonce;
-    // Hash of option to approved address
-    mapping(bytes32 => address) private approvedAddress;
+    // Hash of option to approved new holder
+    mapping(bytes32 => address) private approvedHolderAddress;
+    // Hash of option to approved new writer
+    mapping(bytes32 => address) private approvedWriterAddress;
 
     // Event detailing creation of new option
     event OptionCreated(address indexed seller, bytes32 indexed optionHash);
-    // Event detailing purchase of an option
-    event OptionBought(bytes32 optionHash);
+    // Event detailing purchase of an option either by a holder or writer
+    event OptionExchanged(bytes32 indexed optionHash);
 
     function createOption(address _asset, uint256 _premium, uint256 _strikePrice, uint64 _blockExpiration) public override {
         // Enforce preconditions
@@ -94,7 +55,7 @@ contract OptionsDEX is IOptionsDex {
         require(_strikePrice > 0, "Invalid strike price!");
 
         // Create option
-        Option memory _option = Option(_asset, msg.sender, address(0), _blockExpiration, addressNonce[msg.sender], _premium, _strikePrice, 0);
+        Option memory _option = Option(_asset, msg.sender, address(0), _blockExpiration, addressNonce[msg.sender], _premium, _strikePrice, 0, 0);
         // Create hash for option
         bytes32 _optionHash = keccak256(abi.encode(_option));
         // Add option to mapping
@@ -126,12 +87,12 @@ contract OptionsDEX is IOptionsDex {
         // Set holder directly in storage
         openOptions[_optionHash].holder = msg.sender;
         // Send eth to writer
-        payable(_option.holder).transfer(msg.value);
+        payable(_option.holder).call{value : msg.value};
         // Emit option buy
-        emit OptionBought(_optionHash);
+        emit OptionExchanged(_optionHash);
     }
 
-    function approveOptionTransfer(bytes32 _optionHash, address _newBuyer, uint256 _price) public override {
+    function approveOptionTransferHolder(bytes32 _optionHash, address _newBuyer, uint256 _price) public override {
         // Fetch option from storage
         Option memory _option = openOptions[_optionHash];
         // Check that option exists
@@ -142,12 +103,12 @@ contract OptionsDEX is IOptionsDex {
         // Set holderSellPrice for option
         openOptions[_optionHash].holderSellPrice = _price;
         // Add _newBuyer to approved addresses
-        approvedAddress[_optionHash] = _newBuyer;
+        approvedHolderAddress[_optionHash] = _newBuyer;
     }
 
-    function transferOption(bytes32 _optionHash) public payable override {
+    function transferOptionHolder(bytes32 _optionHash) public payable override {
         // Check that msg.sender has permission
-        require(approvedAddress[_optionHash] == msg.sender, "You are not authorized!");
+        require(approvedHolderAddress[_optionHash] == msg.sender, "You are not authorized!");
         // Fetch option from storage
         Option memory _option = openOptions[_optionHash];
         // Check that option exists
@@ -158,10 +119,48 @@ contract OptionsDEX is IOptionsDex {
         // Change option holder
         openOptions[_optionHash].holder = msg.sender;
         // Delete approved address
-        delete approvedAddress[_optionHash];
+        delete approvedHolderAddress[_optionHash];
 
         // Send ETH to past holder
-        payable(_option.holder).transfer(msg.value);
+        payable(_option.holder).call{value : msg.value};
+
+    }
+
+    function approveOptionTransferWriter(bytes32 _optionHash, uint256 _price, address _newWriter) public override {
+         // Fetch option from storage
+        Option memory _option = openOptions[_optionHash];
+        // Check that option exists
+        require(_option.blockexpiration != 0, "This option does not exist!");
+        // Check that current holder is calling this option
+        require(msg.sender == _option.holder, "You are not the current holder!");
+
+        // Set holderSellPrice for option
+        openOptions[_optionHash].writerSellPrice = _price;
+        // Add _newBuyer to approved addresses
+        approvedWriterAddress[_optionHash] = _newWriter;
+    }
+
+    function transferOptionWriter(bytes32 _optionHash) public payable override {
+        // Check that msg.sender has permission
+        require(approvedWriterAddress[_optionHash] == msg.sender, "You are not authorized!");
+        // Fetch option from storage
+        Option memory _option = openOptions[_optionHash];
+        // Check that option exists
+        require(_option.blockexpiration != 0, "This option does not exist!");
+        // Check that msg.value is equal to holder's sell price
+        require(_option.holderSellPrice == msg.value, "Incorrect amount sent!");
+        // Check that msg.sender has enough assets to cover option
+        IERC20 _token = IERC20(_option.asset);
+        require(_token.balanceOf(msg.sender) >= 100, "You do not have the assets necessary to cover this call");
+
+        // Change option writer
+        openOptions[_optionHash].writer = msg.sender;
+        // Delete approved address
+        delete approvedWriterAddress[_optionHash];
+
+        // Send ETH to past holder
+        payable(_option.writer).call{value : msg.value};
+
     }
 
     function exerciseOption(bytes32 _optionHash) public payable override {
@@ -181,7 +180,7 @@ contract OptionsDEX is IOptionsDex {
         // Delete option
         delete openOptions[_optionHash];
         // Send ETH to writer
-        payable(_option.writer).transfer(msg.value);
+        payable(_option.writer).call{value : msg.value};
     }
 
     function refund(bytes32 _optionHash) public override {
@@ -198,13 +197,14 @@ contract OptionsDEX is IOptionsDex {
 
         // Delete option from storage
         delete openOptions[_optionHash];
-        delete approvedAddress[_optionHash];
+        delete approvedHolderAddress[_optionHash];
+        delete approvedHolderAddress[_optionHash];
     }
 
-    function getOptionDetails(bytes32 _optionHash) public view override returns(address, address, address, uint64, uint32, uint256, uint256, uint256) {
+    function getOptionDetails(bytes32 _optionHash) public view override returns(address, address, address, uint64, uint32, uint256, uint256, uint256, uint256) {
         // Fetch option from storage
         Option memory _option = openOptions[_optionHash];
         // Return option as tuple
-        return (_option.asset, _option.writer, _option.holder, _option.blockexpiration, _option.sellerNonce, _option.premium, _option.strikePrice, _option.holderSellPrice);
+        return (_option.asset, _option.writer, _option.holder, _option.blockexpiration, _option.sellerNonce, _option.premium, _option.strikePrice, _option.holderSellPrice, _option.writerSellPrice);
     }
 }
