@@ -38,11 +38,40 @@ contract OptionsDEX is IOptionsDEX {
     // Hash of option to approved new writer
     mapping(bytes32 => address) private approvedWriterAddress;
 
+    // Mapping of approved asset addresses
+    mapping (address => bool) approvedAssets;
+
     // Event detailing creation of new option
     event OptionCreated(address indexed seller, bytes32 indexed optionHash);
 
     // Event detailing purchase of an option either by a holder or writer
     event OptionExchanged(bytes32 indexed optionHash);
+
+    // Constructor sets the addresses of approved option assets. There are 10 approved assets that utilize 18 decimals.
+    // TO NOT BE RESTRICTED BY ASSETS, REMOVE CONSTRUCTOR AND ANY LINES OF CODE THAT CONTAINS A (*) IN THE LINE ABOVE IT
+    constructor() {
+        // Setting addresses of approved assets
+        // Approving BNB token
+        approvedAssets[0xB8c77482e45F1F44dE1745F52C74426C631bDD52] = true;
+        // Approving Wrapped Luna
+        approvedAssets[0xd2877702675e6cEb975b4A1dFf9fb7BAF4C91ea9] = true;
+        // Approving Shiba Inu
+        approvedAssets[0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE] = true;
+        // Approving Chainlink
+        approvedAssets[0x514910771AF9Ca656af840dff83E8264EcF986CA] = true;
+        // Approving Fantom Token
+        approvedAssets[0x4E15361FD6b4BB609Fa63C81A2be19d873717870] = true;
+        // Approving MATIC Token
+        approvedAssets[0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0] = true;
+        // Approving SAND Token
+        approvedAssets[0x3845badAde8e6dFF049820680d1F14bD3903a5d0] = true;
+        // Approving Graph Token
+        approvedAssets[0xc944E90C64B2c07662A292be6244BDf05Cda44a7] = true;
+        // Approving Spell Token
+        approvedAssets[0x090185f2135308BaD17527004364eBcC2D37e5F6] = true;
+        // Approving Uniswap Token
+        approvedAssets[0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984] = true;
+    }
 
     function createOption(address _asset, uint96 _premium, uint96 _strikePrice, uint96 _blockExpiration) public override {
         // Enforce preconditions
@@ -52,6 +81,8 @@ contract OptionsDEX is IOptionsDEX {
         require(_premium > 0, "Invalid premium!");
         // Check that _strikePrice is a valid number
         require(_strikePrice > 0, "Invalid strike price!");
+        // (*) Check that asset is allowed
+        require(approvedAssets[_asset], "Asset is not allowed!");
 
         // Create option
         Option memory _option = Option(_asset, _strikePrice, msg.sender, _premium, address(0), _blockExpiration, 0, 0);
