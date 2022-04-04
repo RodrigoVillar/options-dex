@@ -56,7 +56,7 @@ contract OptionsDEX is IOptionsDEX {
         // Create option
         Option memory _option = Option(_asset, _strikePrice, msg.sender, _premium, address(0), _blockExpiration, 0, 0);
         // Create hash for option
-        bytes32 _optionHash = keccak256(abi.encode(_option, addressNonce[msg.sender]));
+        bytes32 _optionHash = keccak256(abi.encode(_option, addressNonce[msg.sender], msg.sender));
         // Add option to mapping
         openOptions[_optionHash] = _option;
         // Increment account nonce
@@ -131,7 +131,7 @@ contract OptionsDEX is IOptionsDEX {
         // Check that option exists
         require(_option.blockExpiration != 0, "This option does not exist!");
         // Check that current holder is calling this option
-        require(msg.sender == _option.holder, "You are not the current holder!");
+        require(msg.sender == _option.writer, "You are not the current holder!");
 
         // Set holderSellPrice for option
         openOptions[_optionHash].writerSellPrice = _price;
@@ -147,7 +147,7 @@ contract OptionsDEX is IOptionsDEX {
         // Check that option exists
         require(_option.blockExpiration != 0, "This option does not exist!");
         // Check that msg.value is equal to holder's sell price
-        require(_option.holderSellPrice == msg.value, "Incorrect amount sent!");
+        require(_option.writerSellPrice == msg.value, "Incorrect amount sent!");
         // Check that msg.sender has enough assets to cover option
         IERC20 _token = IERC20(_option.asset);
         require(_token.balanceOf(msg.sender) >= 100, "You do not have the assets necessary to cover this call");
