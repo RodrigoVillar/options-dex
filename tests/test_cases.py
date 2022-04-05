@@ -292,6 +292,10 @@ class Test_transferOptionWriter:
         _CayugaCoin.transfer(accounts[3], 100*10**18, {"from": accounts[0]})
         # Approve Writer B as next Writer
         _OptionsDEX.approveOptionTransferWriter(_option_hash, accounts[3], 1, {"from": accounts[0]})
+        # Writer A sends tokens to Writer B
+        _CayugaCoin.transfer(accounts[3], 100 * 10 ** 18, {"from": accounts[0]})
+        # Writer B approves _OptionsDEX
+        _CayugaCoin.approve(_OptionsDEX.address, 100 * 10 ** 18, {"from": accounts[3]})
         # Execute transfer
         _OptionsDEX.transferOptionWriter(_option_hash, {"from": accounts[3], "value" : 1})
         # Look up option and extract address of option writer

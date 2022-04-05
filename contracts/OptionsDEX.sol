@@ -73,6 +73,15 @@ contract OptionsDEX is IOptionsDEX {
         approvedAssets[0xCE1bFFBD5374Dac86a2893119683F4911a2F7814] = true;
     }
 
+    /*
+    Function that creates an option. 
+
+    Parameters: 
+        _asset: the contract address of the underlying asset, must be approved
+        _premium: the premium per token of the option
+        _strikePrice: the assigned price of the underlying asset
+        _blockExpiration: the expiration of the option (in terms of block number), must be less than 2^96-1 and greater than the current block number
+    */
     function createOption(address _asset, uint96 _premium, uint96 _strikePrice, uint96 _blockExpiration) public override {
         // Enforce preconditions
         // Check that _blockExpiration is for future block
@@ -82,7 +91,7 @@ contract OptionsDEX is IOptionsDEX {
         // Check that _strikePrice is a valid number
         require(_strikePrice > 0, "Invalid strike price!");
         // (*) Check that asset is allowed
-        require(approvedAssets[_asset], "Asset is not allowed!");
+        // require(approvedAssets[_asset], "Asset is not allowed!");
 
         // Create option
         Option memory _option = Option(_asset, _strikePrice, msg.sender, _premium, address(0), _blockExpiration, 0, 0);
@@ -98,12 +107,18 @@ contract OptionsDEX is IOptionsDEX {
         // Check that user has enough tokens to cover option
         require(_token.balanceOf(msg.sender) >= 100, "Not enough tokens to cover option!");
         // Transfer 100 tokens to smart contract
-        _token.transferFrom(msg.sender, address(this), 100);
+        _token.transferFrom(msg.sender, address(this), 10 ** 20);
 
         // Emit new option
         emit OptionCreated(msg.sender, _optionHash);
     }
 
+    /*
+    Function that allows an account to purchase the rights to an option
+    Parameters:
+        _optionHash: the hash of the option being purchased
+    The correct amount of AVAX must be sent with this transaction, otherwise the transaction will revert!
+    */
     function buyOption(bytes32 _optionHash) payable public override {
         // Fetch option from storage
         Option memory _option = openOptions[_optionHash];
@@ -122,6 +137,13 @@ contract OptionsDEX is IOptionsDEX {
         emit OptionExchanged(_optionHash);
     }
 
+    /*
+    Function that approves the next holder of an option
+    Parameters:
+        _optionHash: the hash of the option being purchased
+        _newBuyer: the address of the approved next holder
+        _price: the price at which the next holder will purchase the option at
+    */
     function approveOptionTransferHolder(bytes32 _optionHash, address _newBuyer, uint128 _price) public override {
         // Fetch option from storage
         Option memory _option = openOptions[_optionHash];
@@ -136,6 +158,12 @@ contract OptionsDEX is IOptionsDEX {
         approvedHolderAddress[_optionHash] = _newBuyer;
     }
 
+    /*
+    Function that allows the approved next holder to obtain the rights to an option
+    Parameters:
+        _optionHash: the hash of the option being transferred
+    The correct amount of AVAX must be sent with this transaction, otherwise the transaction will revert!
+    */
     function transferOptionHolder(bytes32 _optionHash) public payable override {
         // Check that msg.sender has permission
         require(approvedHolderAddress[_optionHash] == msg.sender, "You are not authorized!");
@@ -156,6 +184,13 @@ contract OptionsDEX is IOptionsDEX {
 
     }
 
+    /*
+    Function that approves the next writer of an option.
+    Parameters:
+        _optionHash: the hash of the particular option
+        _newWriter: the address of the next writer
+        _price: the price whicht the next writer will purchase the option at
+    */
     function approveOptionTransferWriter(bytes32 _optionHash, address _newWriter, uint128 _price) public override {
          // Fetch option from storage
         Option memory _option = openOptions[_optionHash];
@@ -170,6 +205,12 @@ contract OptionsDEX is IOptionsDEX {
         approvedWriterAddress[_optionHash] = _newWriter;
     }
 
+    /*
+    Function that allows the approved next writer of an option to purchase the option.
+    Parameters:
+        _optionHash: the hash of the particular option
+    The correct amount of AVAX must be sent with this transaction, otherwise the transaction will revert! In addition, the approved next writer must have already approved for OptionsDEX to transfer their tokens to the smart contract, otherwise the transaction will revert
+    */
     function transferOptionWriter(bytes32 _optionHash) public payable override {
         // Check that msg.sender has permission
         require(approvedWriterAddress[_optionHash] == msg.sender, "You are not authorized!");
@@ -180,8 +221,15 @@ contract OptionsDEX is IOptionsDEX {
         // Check that msg.value is equal to holder's sell price
         require(_option.writerSellPrice == msg.value, "Incorrect amount sent!");
         // Check that msg.sender has enough assets to cover option
+        // Create interface
         IERC20 _token = IERC20(_option.asset);
+        // Check that msg.sender has enough tokens
         require(_token.balanceOf(msg.sender) >= 100, "You do not have the assets necessary to cover this call");
+
+        // Send tokens back to original writer
+        _token.transfer(_option.writer, 10 ** 20);
+        // Get tokens from msg.sender
+        _token.transferFrom(msg.sender, address(this), 10 ** 20);
 
         // Change option writer
         openOptions[_optionHash].writer = msg.sender;
@@ -193,6 +241,12 @@ contract OptionsDEX is IOptionsDEX {
 
     }
 
+    /*
+    Function that allows the current holder of an option to exercise their rights to an option
+    Parameters: 
+        _optionHash: the hash of the option being exercised
+    The correct amount of AVAX must be sent with this transaction, otherwise the transaction will revert!
+    */
     function exerciseOption(bytes32 _optionHash) public payable override {
         // Fetch option from storage
         Option memory _option = openOptions[_optionHash];
@@ -205,7 +259,7 @@ contract OptionsDEX is IOptionsDEX {
 
         // Send tokens to msg.sender
         IERC20 _token = IERC20(_option.asset);
-        _token.transfer(msg.sender, 100);
+        _token.transfer(msg.sender, 10 ** 20);
 
         // Delete option
         delete openOptions[_optionHash];
@@ -216,6 +270,11 @@ contract OptionsDEX is IOptionsDEX {
         payable(_option.writer).call{value : msg.value};
     }
 
+    /*
+    Function that allows the writer of an option to 'cancel' their option if either a buyer has not been assigned or the option is past its expiration date
+    Parameters:
+        _optionHash: the hash of the particular option
+    */
     function refund(bytes32 _optionHash) public override {
         // Fetch option from storage and check if it is valid
         Option memory _option = openOptions[_optionHash]; 
@@ -226,7 +285,7 @@ contract OptionsDEX is IOptionsDEX {
 
         // Send 100 tokens back to seller
         IERC20 _token = IERC20(_option.asset);
-        _token.transfer(msg.sender, 100);
+        _token.transfer(msg.sender, 10 ** 20);
 
         // Delete option from storage
         delete openOptions[_optionHash];
@@ -234,6 +293,11 @@ contract OptionsDEX is IOptionsDEX {
         delete approvedWriterAddress[_optionHash];
     }
 
+    /*
+    Function that returns information about a particular option in the form of a tuple
+    Parameters:
+        _optionHash: the hash of the option being querried
+    */
     function getOptionDetails(bytes32 _optionHash) public view override returns(address, uint96, address, uint96, address, uint96, uint128, uint128) {
         // Fetch option from storage
         Option memory _option = openOptions[_optionHash];
@@ -241,14 +305,29 @@ contract OptionsDEX is IOptionsDEX {
         return (_option.asset, _option.strikePrice, _option.writer, _option.premium, _option.holder, _option.blockExpiration, _option.holderSellPrice, _option.writerSellPrice);
     }
 
+    /*
+    Function that returns the current approved next holder of an option
+    Parameters:
+        _optionHash: the hash of the option being queried
+    */
     function viewHolderApproval(bytes32 _optionHash) external view override returns (address) {
         return approvedHolderAddress[_optionHash];
     }
 
+    /*
+    Function that returns the current approved next writer of an option
+    Parameters:
+        _optionHash: the hash of the option being queried
+    */
     function viewWriterApproval(bytes32 _optionHash) external view override returns (address) {
         return approvedWriterAddress[_optionHash];
     }
 
+    /*
+    Function that returns a boolean representing whether if a smart contract address is an approved underlying asset for options on OptionsDEX
+    Parameters:
+        _asset: the address of the asset being queried
+    */
     function isApprovedAsset(address _asset) external view override returns(bool) {
         return approvedAssets[_asset];
     }
