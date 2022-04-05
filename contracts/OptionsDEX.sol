@@ -39,7 +39,7 @@ contract OptionsDEX is IOptionsDEX {
     mapping(bytes32 => address) private approvedWriterAddress;
 
     // Mapping of approved asset addresses
-    mapping (address => bool) approvedAssets;
+    mapping (address => bool) private approvedAssets;
 
     // Event detailing creation of new option
     event OptionCreated(address indexed seller, bytes32 indexed optionHash);
@@ -244,6 +244,10 @@ contract OptionsDEX is IOptionsDEX {
 
     function viewWriterApproval(bytes32 _optionHash) external view override returns (address) {
         return approvedWriterAddress[_optionHash];
+    }
+
+    function isApprovedAsset(address _asset) external view override returns(bool) {
+        return approvedAssets[_asset];
     }
 
     receive() external payable override {}

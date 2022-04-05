@@ -27,6 +27,8 @@ interface IOptionsDEX {
 
     function viewWriterApproval(bytes32 _optionHash) external view returns (address);
 
+    function isApprovedAsset(address _asset) external view returns(bool); 
+
     receive() external payable;
 
 }
