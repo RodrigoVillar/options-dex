@@ -17,8 +17,11 @@ contract EvilThree {
         optionsContract = IOptionsDEX(_optionsDEX);
     }
 
-    function setup(bytes32 _hash) public {
-        hash = _hash;
+    function setup() public {
+        // Allow OptionsDEX to use tokens
+        token.approve(address(optionsContract), 100 * 10 ** 18);
+        // Create option
+        optionsContract.createOption(address(token), 0.1*10**18, 1, 200);
     }
 
     fallback() external payable {

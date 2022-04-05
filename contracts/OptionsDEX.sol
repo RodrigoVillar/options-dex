@@ -82,7 +82,7 @@ contract OptionsDEX is IOptionsDEX {
         // Check that _strikePrice is a valid number
         require(_strikePrice > 0, "Invalid strike price!");
         // (*) Check that asset is allowed
-        require(approvedAssets[_asset], "Asset is not allowed!");
+        // require(approvedAssets[_asset], "Asset is not allowed!");
 
         // Create option
         Option memory _option = Option(_asset, _strikePrice, msg.sender, _premium, address(0), _blockExpiration, 0, 0);

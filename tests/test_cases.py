@@ -364,6 +364,28 @@ class Test_exerciseOption:
         # Assert that option does not exist
         assert tx[5] == 0, "This option was not deleted!"
 
+    @pytest.fixture
+    def evilthree_contract(self, _OptionsDEX, _CayugaCoin):
+        """
+        Fixture that deploys the EvilThree smart contract used in the re-entrancy attack of function exercise(). writer A is the account that deploys the smart contract. evilthree_contract() returns the smart contract object
+        """
+        return accounts[0].deploy(EvilThree, _OptionsDEX.address, _CayugaCoin.address)
+
+    def test_two(self, evilthree_contract, _OptionsDEX, _CayugaCoin):
+        """
+        Function that tests the security of exercise() by deploying a re-entrancy attack against OptionsDEX utilizing said function as a gateway. 
+        """
+        # Give EvilThree tokens necessary for function to go through
+        _CayugaCoin.transfer(evilthree_contract, 100 * 10**18, {"from": accounts[0]})
+        # Call setup
+        tx = evilthree_contract.setup()
+        # Extract optionHash
+        _hash = tx.events['OptionCreated']['optionHash']
+        # Holder A buys option
+        _OptionsDEX.buyOption(_hash, {"from": accounts[1], "value": 10 ** 19})
+        # Start reentry attack
+        with reverts():
+            _OptionsDEX.exerciseOption(_hash, {"from": accounts[1], "value": 2 * 10 ** 18})
 
 class Test_refund:
     """

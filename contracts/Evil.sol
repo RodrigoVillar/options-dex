@@ -3,10 +3,10 @@ pragma solidity 0.8.0;
 import "../interfaces/IERC20.sol";
 import "../interfaces/IOptionsDEX.sol";
 /*
-Smart contract for attempting a reentry attack on OptionsDEX
+Smart contract for attempting a re-entrancy attack on OptionsDEX
 
 During initialization, Evil recieves the addresses necessary to interact
-with OptionsDEX and an ERC20. The user then calls evilFunction() which creates an option. The user is then expected to call buyOption() which starts the reentry attack. buyOption() sends eth to Evil, which activates its fallback function. fallback() calls buyOption() again to try and siphon funds from the smart contract back to itself.  
+with OptionsDEX and an ERC-20 token (CayugaCoin). The user then calls evilFunction() which creates an option. The user is then expected to call buyOption() which starts the re-entrancy attack. buyOption() sends eth to Evil, which activates its fallback function. fallback() calls buyOption() again to try and siphon funds from the smart contract back to itself.  
 */
 contract Evil {
 
@@ -34,5 +34,4 @@ contract Evil {
     fallback() external payable {
         optionContract.buyOption(hash);
     }
-
 }
