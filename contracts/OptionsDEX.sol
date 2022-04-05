@@ -209,6 +209,9 @@ contract OptionsDEX is IOptionsDEX {
 
         // Delete option
         delete openOptions[_optionHash];
+        // Delete approvals
+        delete approvedHolderAddress[_optionHash];
+        delete approvedWriterAddress[_optionHash];
         // Send ETH to writer
         payable(_option.writer).call{value : msg.value};
     }
@@ -228,7 +231,7 @@ contract OptionsDEX is IOptionsDEX {
         // Delete option from storage
         delete openOptions[_optionHash];
         delete approvedHolderAddress[_optionHash];
-        delete approvedHolderAddress[_optionHash];
+        delete approvedWriterAddress[_optionHash];
     }
 
     function getOptionDetails(bytes32 _optionHash) public view override returns(address, uint96, address, uint96, address, uint96, uint128, uint128) {
