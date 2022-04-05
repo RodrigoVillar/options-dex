@@ -32,7 +32,7 @@ contract OptionsDEX is IOptionsDEX {
     // Hash of option to option
     mapping(bytes32 => Option) private openOptions;
     // Address to nonce
-    mapping(address => uint32) private addressNonce;
+    mapping(address => uint256) private addressNonce;
     // Hash of option to approved new holder
     mapping(bytes32 => address) private approvedHolderAddress;
     // Hash of option to approved new writer
@@ -91,7 +91,7 @@ contract OptionsDEX is IOptionsDEX {
         // Check that _strikePrice is a valid number
         require(_strikePrice > 0, "Invalid strike price!");
         // (*) Check that asset is allowed
-        // require(approvedAssets[_asset], "Asset is not allowed!");
+        require(approvedAssets[_asset], "Asset is not allowed!");
 
         // Create option
         Option memory _option = Option(_asset, _strikePrice, msg.sender, _premium, address(0), _blockExpiration, 0, 0);
@@ -105,7 +105,7 @@ contract OptionsDEX is IOptionsDEX {
         // Create interface
         IERC20 _token = IERC20(_asset);
         // Check that user has enough tokens to cover option
-        require(_token.balanceOf(msg.sender) >= 100, "Not enough tokens to cover option!");
+        require(_token.balanceOf(msg.sender) >= 10 ** 20, "Not enough tokens to cover option!");
         // Transfer 100 tokens to smart contract
         _token.transferFrom(msg.sender, address(this), 10 ** 20);
 
@@ -132,7 +132,8 @@ contract OptionsDEX is IOptionsDEX {
         // Set holder directly in storage
         openOptions[_optionHash].holder = msg.sender;
         // Send eth to writer
-        payable(_option.holder).call{value : msg.value};
+        (bool sent, ) = _option.holder.call{value: msg.value}("");
+        require(sent, "Failed to send Ether");
         // Emit option buy
         emit OptionExchanged(_optionHash);
     }
@@ -180,7 +181,8 @@ contract OptionsDEX is IOptionsDEX {
         delete approvedHolderAddress[_optionHash];
 
         // Send ETH to past holder
-        payable(_option.holder).call{value : msg.value};
+        (bool sent, ) = _option.holder.call{value: msg.value}("");
+        require(sent, "Failed to send Ether");
 
     }
 
@@ -224,7 +226,7 @@ contract OptionsDEX is IOptionsDEX {
         // Create interface
         IERC20 _token = IERC20(_option.asset);
         // Check that msg.sender has enough tokens
-        require(_token.balanceOf(msg.sender) >= 100, "You do not have the assets necessary to cover this call");
+        require(_token.balanceOf(msg.sender) >= 10 ** 20, "You do not have the assets necessary to cover this call");
 
         // Send tokens back to original writer
         _token.transfer(_option.writer, 10 ** 20);
@@ -236,9 +238,9 @@ contract OptionsDEX is IOptionsDEX {
         // Delete approved address
         delete approvedWriterAddress[_optionHash];
 
-        // Send ETH to past holder
-        payable(_option.writer).call{value : msg.value};
-
+        // Send ETH to past writer
+        (bool sent, ) = _option.writer.call{value: msg.value}("");
+        require(sent, "Failed to send Ether");
     }
 
     /*
@@ -267,7 +269,8 @@ contract OptionsDEX is IOptionsDEX {
         delete approvedHolderAddress[_optionHash];
         delete approvedWriterAddress[_optionHash];
         // Send ETH to writer
-        payable(_option.writer).call{value : msg.value};
+        (bool sent, ) = _option.holder.call{value: msg.value}("");
+        require(sent, "Failed to send Ether");
     }
 
     /*
