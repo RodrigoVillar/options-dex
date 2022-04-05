@@ -51,26 +51,26 @@ contract OptionsDEX is IOptionsDEX {
     // TO NOT BE RESTRICTED BY ASSETS, REMOVE CONSTRUCTOR AND ANY LINES OF CODE THAT CONTAINS A (*) IN THE LINE ABOVE IT
     constructor() {
         // Setting addresses of approved assets
-        // Approving BNB token
-        approvedAssets[0xB8c77482e45F1F44dE1745F52C74426C631bDD52] = true;
-        // Approving Wrapped Luna
-        approvedAssets[0xd2877702675e6cEb975b4A1dFf9fb7BAF4C91ea9] = true;
-        // Approving Shiba Inu
-        approvedAssets[0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE] = true;
-        // Approving Chainlink
-        approvedAssets[0x514910771AF9Ca656af840dff83E8264EcF986CA] = true;
-        // Approving Fantom Token
-        approvedAssets[0x4E15361FD6b4BB609Fa63C81A2be19d873717870] = true;
-        // Approving MATIC Token
-        approvedAssets[0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0] = true;
-        // Approving SAND Token
-        approvedAssets[0x3845badAde8e6dFF049820680d1F14bD3903a5d0] = true;
-        // Approving Graph Token
-        approvedAssets[0xc944E90C64B2c07662A292be6244BDf05Cda44a7] = true;
-        // Approving Spell Token
-        approvedAssets[0x090185f2135308BaD17527004364eBcC2D37e5F6] = true;
-        // Approving Uniswap Token
-        approvedAssets[0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984] = true;
+        // Wrapped AVAX
+        approvedAssets[0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7] = true;
+        // Shiba Inu
+        approvedAssets[0x02D980A0D7AF3fb7Cf7Df8cB35d9eDBCF355f665] = true;
+        // Chainlink Token
+        approvedAssets[0x5947BB275c521040051D82396192181b413227A3] = true;
+        // Maker Token
+        approvedAssets[0x88128fd4b259552A9A1D457f435a6527AAb72d42] = true;
+        // Uniswap Token
+        approvedAssets[0x8eBAf22B6F053dFFeaf46f4Dd9eFA95D89ba8580] = true;
+        // Graph Token
+        approvedAssets[0x8a0cAc13c7da965a312f08ea4229c37869e85cB9] = true;
+        // AAVE Token
+        approvedAssets[0x63a72806098Bd3D9520cC43356dD78afe5D386D9] = true;
+        // CurveDAO Token
+        approvedAssets[0x249848BeCA43aC405b8102Ec90Dd5F22CA513c06] = true;
+        // Sushi Token
+        approvedAssets[0x37B608519F91f70F2EeB0e5Ed9AF4061722e4F76] = true;
+        // Spell Token
+        approvedAssets[0xCE1bFFBD5374Dac86a2893119683F4911a2F7814] = true;
     }
 
     function createOption(address _asset, uint96 _premium, uint96 _strikePrice, uint96 _blockExpiration) public override {
@@ -82,7 +82,7 @@ contract OptionsDEX is IOptionsDEX {
         // Check that _strikePrice is a valid number
         require(_strikePrice > 0, "Invalid strike price!");
         // (*) Check that asset is allowed
-        // require(approvedAssets[_asset], "Asset is not allowed!");
+        require(approvedAssets[_asset], "Asset is not allowed!");
 
         // Create option
         Option memory _option = Option(_asset, _strikePrice, msg.sender, _premium, address(0), _blockExpiration, 0, 0);
